@@ -1,0 +1,41 @@
+name: Build iOS IPA (AltStore-ready)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main, master ]
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Xcode archive
+        run: |
+          set -e
+          cd AutoMileageProject
+          xcodebuild -project AutoMileage.xcodeproj \
+            -scheme AutoMileage \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath build/AutoMileage.xcarchive \
+            clean archive
+
+      - name: Package unsigned IPA (AltStore will sign)
+        run: |
+          set -e
+          cd AutoMileageProject
+          mkdir -p Payload
+          APP_PATH="build/AutoMileage.xcarchive/Products/Applications/AutoMileage.app"
+          ditto "$APP_PATH" "Payload/AutoMileage.app"
+          /usr/bin/zip -qry AutoMileage-unsigned.ipa Payload
+          rm -rf Payload
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AutoMileage-unsigned
+          path: AutoMileageProject/AutoMileage-unsigned.ipa
+          if-no-files-found: error
